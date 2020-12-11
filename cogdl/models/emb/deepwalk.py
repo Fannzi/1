@@ -1,7 +1,10 @@
-import numpy as np
-import networkx as nx
-from gensim.models import Word2Vec, KeyedVectors
 import random
+import argparse
+import networkx as nx
+import numpy as np
+from gensim.models import Word2Vec
+from tqdm import tqdm
+
 from .. import BaseModel, register_model
 
 
@@ -9,7 +12,7 @@ from .. import BaseModel, register_model
 class DeepWalk(BaseModel):
     r"""The DeepWalk model from the `"DeepWalk: Online Learning of Social Representations"
     <https://arxiv.org/abs/1403.6652>`_ paper
-    
+
     Args:
         hidden_size (int) : The dimension of node representation.
         walk_length (int) : The walk length.
@@ -18,9 +21,9 @@ class DeepWalk(BaseModel):
         worker (int) : The number of workers for word2vec.
         iteration (int) : The number of training iteration in word2vec.
     """
-    
+
     @staticmethod
-    def add_args(parser):
+    def add_args(parser: argparse.ArgumentParser):
         """Add model-specific arguments to the parser."""
         # fmt: off
         parser.add_argument('--walk-length', type=int, default=80,
@@ -36,7 +39,7 @@ class DeepWalk(BaseModel):
         # fmt: on
 
     @classmethod
-    def build_model_from_args(cls, args):
+    def build_model_from_args(cls, args) -> "DeepWalk":
         return cls(
             args.hidden_size,
             args.walk_length,
@@ -46,9 +49,7 @@ class DeepWalk(BaseModel):
             args.iteration,
         )
 
-    def __init__(
-        self, dimension, walk_length, walk_num, window_size, worker, iteration
-    ):
+    def __init__(self, dimension, walk_length, walk_num, window_size, worker, iteration):
         super(DeepWalk, self).__init__()
         self.dimension = dimension
         self.walk_length = walk_length
@@ -57,11 +58,12 @@ class DeepWalk(BaseModel):
         self.worker = worker
         self.iteration = iteration
 
-    def train(self, G):
+    def train(self, G: nx.Graph, embedding_model_creator=Word2Vec):
         self.G = G
         walks = self._simulate_walks(self.walk_length, self.walk_num)
         walks = [[str(node) for node in walk] for walk in walks]
-        model = Word2Vec(
+        print("training word2vec...")
+        model = embedding_model_creator(
             walks,
             size=self.dimension,
             window=self.window_size,
@@ -92,8 +94,8 @@ class DeepWalk(BaseModel):
         walks = []
         nodes = list(G.nodes())
         print("node number:", len(nodes))
-        for walk_iter in range(num_walks):
-            print(str(walk_iter + 1), "/", str(num_walks))
+        print("generating random walks...")
+        for walk_iter in tqdm(range(num_walks)):
             random.shuffle(nodes)
             for node in nodes:
                 walks.append(self._walk(node, walk_length))
